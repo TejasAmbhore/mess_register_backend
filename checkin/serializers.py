@@ -10,3 +10,6 @@ class CheckInSerializer(serializers.ModelSerializer):
     class Meta:
         model = CheckIn
         fields = '__all__'
+
+class FileSerializer(serializers.Serializer):
+    file = serializers.FileField()

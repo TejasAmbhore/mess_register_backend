@@ -7,6 +7,10 @@ import datetime
 from django.db import IntegrityError
 # from django.db.models import Q
 from datetime import timedelta
+import pandas as pd
+from rest_framework.parsers import FileUploadParser
+from rest_framework.views import APIView
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('rollNo')
@@ -90,3 +94,31 @@ class CheckInViewSet(viewsets.ViewSet):
 
         serializer = CheckInSerializer(queryset, many=True)
         return Response(serializer.data)
+    
+class FileUploadView(APIView):
+    parser_class = (FileUploadParser,)
+
+    def post(self, request):
+        file_serializer = FileSerializer(data=request.data)
+
+        if file_serializer.is_valid():
+            file_obj = file_serializer.validated_data['file']
+            if file_obj.name.endswith('.csv'):
+                data = pd.read_csv(file_obj)
+            elif file_obj.name.endswith('.xlsx'):
+                data = pd.read_excel(file_obj)
+
+            for index, row in data.iterrows():
+                user = User(
+                    rollNo=row['rollNo'],
+                    type=row['type'],
+                    batch=row['batch'],
+                    name=row['name'],
+                    hall=row['hall'],
+                    # profile pic code
+                )
+                user.save()
+
+            return Response(file_serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(file_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
