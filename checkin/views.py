@@ -12,6 +12,14 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('rollNo')
     serializer_class = UserSerializer
 
+    def retrieve(self, request, pk=None):
+        user = User.objects.filter(rollNo=pk).first()
+        if not user:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
 def get_slot():
     now = datetime.datetime.now().time()
     print(now)
@@ -19,7 +27,7 @@ def get_slot():
     breakfast_end = datetime.time(10, 0)
     lunch_start = datetime.time(12, 0)
     lunch_end = datetime.time(14, 30)
-    snacks_start = datetime.time(16, 0)
+    snacks_start = datetime.time(15, 0)
     snacks_end = datetime.time(18, 30)
     dinner_start = datetime.time(19, 0)
     dinner_end = datetime.time(21, 30)
@@ -44,16 +52,18 @@ class CheckInViewSet(viewsets.ViewSet):
 
         slot = get_slot()
         if not slot:
-            return Response({'error': 'Invalid time for check-in'}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({'error': 'Invalid time for check-in'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        today = datetime.datetime.now().date()
+        existing_checkin = CheckIn.objects.filter(user=user, date=today, slot=slot).first()
+        if existing_checkin:
+            return Response({'error': 'Already checked-in for this slot'}, status=status.HTTP_403_FORBIDDEN)
+
         data = {'user': user.id, 'rollNo': user.rollNo, 'name': user.name, 'slot': slot}
         serializer = CheckInSerializer(data=data)
         if serializer.is_valid():
-            try:
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            except IntegrityError:
-                return Response({'error': 'Already checked-in for this slot'}, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
