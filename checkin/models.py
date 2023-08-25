@@ -10,6 +10,7 @@ class User(models.Model):
     name = models.CharField(max_length=50)
     hall = models.CharField(max_length=4)
     profilePic = models.ImageField(upload_to='profile_pics', blank=True)
+    foodChoice = models.CharField(max_length=10, choices=[('veg', 'Veg'), ('nonveg', 'Non-Veg')], default='veg')
 
     def __str__(self):
         return self.rollNo + " - " + self.name
