@@ -10,5 +10,6 @@ router.register(r'checkin', CheckInViewSet, basename='checkin')
 urlpatterns = [
     path('', include(router.urls)),
     path('upload/', views.FileUploadView.as_view(), name='file-upload'),
+    path('login/', login_view, name='login'),
 
 ]

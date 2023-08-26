@@ -10,19 +10,67 @@ from datetime import timedelta
 import pandas as pd
 from rest_framework.parsers import FileUploadParser
 from rest_framework.views import APIView
+from django.contrib.auth.decorators import permission_required
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import api_view, permission_classes
+from django.contrib.auth import authenticate, login
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import BasePermission
+
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_view(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    user = authenticate(request, username=username, password=password)
+    if user is not None:
+        login(request, user)
+        token, created = Token.objects.get_or_create(user=user)
+
+        return Response({'token': token.key, 'success': 'Login successful'}, status=status.HTTP_200_OK)
+    else:
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+@api_view(['POST'])
+def logout_view(request):
+    request.auth.delete()
+    return Response(status=status.HTTP_200_OK)
+
+class CanCheckInPermission(BasePermission):
+    message = "You don't have permission to check in."
+
+    def has_permission(self, request, view):
+        return request.user.has_perm('checkin.can_check_in')
+
+class CanViewStatsPermission(BasePermission):
+    message = "You don't have permission to view statistics."
+
+    def has_permission(self, request, view):
+        return request.user.has_perm('checkin.can_view_stats')
 
 
 class UserViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = User.objects.all().order_by('rollNo')
     serializer_class = UserSerializer
-
+    
+    # @permission_required('checkin.can_view_stats')
     def retrieve(self, request, pk=None):
-        user = User.objects.filter(rollNo=pk).first()
-        if not user:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
+        try:
+            print("or here")
+            if not request.user.has_perm('checkin.can_view_stats'):
+                return Response({'error': 'Permission Denied'}, status=status.HTTP_403_FORBIDDEN)
+            user = User.objects.filter(rollNo=pk).first()
+            if not user:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            serializer = UserSerializer(user)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 def get_slot():
     now = datetime.datetime.now().time()
@@ -48,9 +96,16 @@ def get_slot():
         return None
     
 class CheckInViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    # @permission_required('checkin.can_check_in')
     def create(self, request):
         rollNo = request.data.get('rollNo')
         user = User.objects.filter(rollNo=rollNo).first()
+
+        if not CanCheckInPermission().has_permission(request, self):
+            return Response({'error': CanCheckInPermission.message}, status=status.HTTP_403_FORBIDDEN)
+        
         if not user:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -71,6 +126,7 @@ class CheckInViewSet(viewsets.ViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    # @permission_required('checkin.can_view_stats')
     def list(self, request):
         queryset = CheckIn.objects.all()
         
@@ -78,6 +134,11 @@ class CheckInViewSet(viewsets.ViewSet):
         last_30_days = request.query_params.get('last_30_days', None)
         slot = request.query_params.get('slot', None)
         rollNo = request.query_params.get('rollNo', None)
+        food_type = request.query_params.get('food_type', None)
+
+        if not CanViewStatsPermission().has_permission(request, self):
+            return Response({'error': CanViewStatsPermission.message}, status=status.HTTP_403_FORBIDDEN)
+        
 
         if date:
             queryset = queryset.filter(date=date)
@@ -91,13 +152,18 @@ class CheckInViewSet(viewsets.ViewSet):
         
         if rollNo:
             queryset = queryset.filter(rollNo=rollNo)
+        
+        if food_type:
+            queryset = queryset.filter(food_type=food_type)
 
         serializer = CheckInSerializer(queryset, many=True)
         return Response(serializer.data)
     
 class FileUploadView(APIView):
+    permission_classes = [IsAuthenticated]
     parser_class = (FileUploadParser,)
 
+    @permission_required('checkin.can_manage_all')
     def post(self, request):
         file_serializer = FileSerializer(data=request.data)
 

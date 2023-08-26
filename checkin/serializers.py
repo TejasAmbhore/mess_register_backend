@@ -7,9 +7,14 @@ class UserSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CheckInSerializer(serializers.ModelSerializer):
+    foodChoice = serializers.SerializerMethodField()
+
     class Meta:
         model = CheckIn
-        fields = '__all__'
+        fields = ['id', 'rollNo', 'name', 'date', 'slot', 'foodChoice']
+
+    def get_foodChoice(self, obj):
+        return obj.user.foodChoice
 
 class FileSerializer(serializers.Serializer):
     file = serializers.FileField()

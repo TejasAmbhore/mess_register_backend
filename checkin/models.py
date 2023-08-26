@@ -15,6 +15,14 @@ class User(models.Model):
     def __str__(self):
         return self.rollNo + " - " + self.name
     
+    class Meta:
+        permissions = [
+            ("can_check_in", "Can allow users to check in"),
+            ("can_view_stats", "Can view check-in statistics and data"),
+            ("can_manage_all", "Can manage all operations"),
+        ]
+
+    
 class CheckIn(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     rollNo = models.CharField(max_length=9)
@@ -27,3 +35,8 @@ class CheckIn(models.Model):
 
     class Meta:
         unique_together = ('user', 'date', 'slot')
+        permissions = [
+            ("can_check_in", "Can allow users to check in"),
+            ("can_view_stats", "Can view check-in statistics and data"),
+            ("can_manage_all", "Can manage all operations"),
+        ]
