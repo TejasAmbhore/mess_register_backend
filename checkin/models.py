@@ -33,6 +33,11 @@ class CheckIn(models.Model):
 
     def __str__(self):
         return self.rollNo + " - " + self.name + " - " + self.slot + " - " + str(self.date)
+    
+    def save(self, *args, **kwargs):
+        # Set the food_type based on the related User's foodChoice
+        self.food_type = self.user.foodChoice
+        super(CheckIn, self).save(*args, **kwargs)
 
     class Meta:
         unique_together = ('user', 'date', 'slot')
