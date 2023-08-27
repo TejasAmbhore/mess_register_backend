@@ -29,6 +29,7 @@ class CheckIn(models.Model):
     name = models.CharField(max_length=100)
     date = models.DateField(auto_now_add=True, null=False)
     slot = models.CharField(max_length=20, null=False,choices=[('breakfast', 'Breakfast'), ('lunch', 'Lunch'), ('snacks', 'Snacks'), ('dinner', 'Dinner')])
+    food_type = models.CharField(max_length=10, null=False, choices=[('veg', 'Veg'), ('nonveg', 'Non-Veg')], default='veg')
 
     def __str__(self):
         return self.rollNo + " - " + self.name + " - " + self.slot + " - " + str(self.date)
