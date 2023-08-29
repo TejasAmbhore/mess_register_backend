@@ -36,8 +36,9 @@ class CheckIn(models.Model):
     
     def save(self, *args, **kwargs):
         # Set the food_type based on the related User's foodChoice
-        self.food_type = self.user.foodChoice
         super(CheckIn, self).save(*args, **kwargs)
+        self.food_type = self.user.foodChoice
+        super(CheckIn, self).save(update_fields=['food_type'])
 
     class Meta:
         unique_together = ('user', 'date', 'slot')

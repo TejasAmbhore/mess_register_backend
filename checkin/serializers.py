@@ -11,7 +11,7 @@ class CheckInSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CheckIn
-        fields = ['id', 'rollNo', 'name', 'date', 'slot', 'food_type', 'foodChoice']
+        fields = ['id', 'user', 'rollNo', 'name', 'date', 'slot', 'food_type', 'foodChoice']
 
     def get_foodChoice(self, obj):
         return obj.user.foodChoice
