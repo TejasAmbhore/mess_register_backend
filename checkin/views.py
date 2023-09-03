@@ -62,7 +62,8 @@ class CanViewStatsPermission(BasePermission):
     message = "You don't have permission to view statistics."
 
     def has_permission(self, request, view):
-        return request.user.has_perm('checkin.can_view_stats')
+        # return request.user.has_perm('checkin.can_view_stats')
+        return True
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -109,9 +110,8 @@ def get_slot():
         return None
     
 class CheckInViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
-    # @permission_required('checkin.can_check_in')
     def create(self, request):
         rollNo = request.data.get('rollNo')
         user = User.objects.filter(rollNo=rollNo).first()
@@ -139,7 +139,6 @@ class CheckInViewSet(viewsets.ViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    # @permission_required('checkin.can_view_stats')
     def list(self, request):
         queryset = CheckIn.objects.all()
         
@@ -156,15 +155,17 @@ class CheckInViewSet(viewsets.ViewSet):
 
         if date:
             queryset = queryset.filter(date=date)
-        elif last_30_days:
+        elif not date:
+            queryset = queryset.filter(date=datetime.datetime.now().date())
+        if last_30_days:
             end_date = datetime.datetime.now().date()
             start_date = end_date - timedelta(days=30)
             queryset = queryset.filter(date__range=(start_date, end_date))
-        elif last_7_days:
+        if last_7_days:
             end_date = datetime.datetime.now().date()
             start_date = end_date - timedelta(days=7)
             queryset = queryset.filter(date__range=(start_date, end_date))
-        
+
         if slot:
             queryset = queryset.filter(slot=slot)
         
