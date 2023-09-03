@@ -110,7 +110,7 @@ def get_slot():
         return None
     
 class CheckInViewSet(viewsets.ViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def create(self, request):
         rollNo = request.data.get('rollNo')
