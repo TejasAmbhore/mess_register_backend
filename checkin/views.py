@@ -62,8 +62,14 @@ class CanViewStatsPermission(BasePermission):
     message = "You don't have permission to view statistics."
 
     def has_permission(self, request, view):
-        # return request.user.has_perm('checkin.can_view_stats')
-        return True
+        return request.user.has_perm('checkin.can_view_stats')
+        # return True
+
+class CanManageAllPermission(BasePermission):
+    message = 'User does not have the required permissions.'
+
+    def has_permission(self, request, view):
+        return request.user.has_perm('checkin.can_manage_all')
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -235,10 +241,10 @@ class CheckInViewSet(viewsets.ViewSet):
         return Response(serializer.data)
     
 class FileUploadView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CanManageAllPermission]
     parser_class = (FileUploadParser,)
 
-    @permission_required('checkin.can_manage_all')
+    # @permission_required('checkin.can_manage_all')
     def post(self, request):
         file_serializer = FileSerializer(data=request.data)
 
@@ -256,6 +262,7 @@ class FileUploadView(APIView):
                     batch=row['batch'],
                     name=row['name'],
                     hall=row['hall'],
+                    foodChoice=row['foodChoice'],
                     # profile pic code
                 )
                 user.save()
