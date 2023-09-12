@@ -19,6 +19,29 @@ from rest_framework.permissions import BasePermission
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 
+def get_slot():
+    now = datetime.datetime.now().time()
+    print(now)
+    breakfast_start = datetime.time(7, 0)
+    breakfast_end = datetime.time(10, 0)
+    lunch_start = datetime.time(12, 0)
+    lunch_end = datetime.time(14, 30)
+    snacks_start = datetime.time(16, 0)
+    snacks_end = datetime.time(18, 30)
+    dinner_start = datetime.time(19, 0)
+    dinner_end = datetime.time(21, 30)
+
+    if breakfast_start <= now <= breakfast_end:
+        return 'breakfast'
+    elif lunch_start <= now <= lunch_end:
+        return 'lunch'
+    elif snacks_start <= now <= snacks_end:
+        return 'snacks'
+    elif dinner_start <= now <= dinner_end:
+        return 'dinner'
+    else:
+        return None
+    
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -91,29 +114,30 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+    # make status inactive for user
+    def destroy(self, request, pk=None):
+        try:
+            if not CanManageAllPermission().has_permission(request, self):
+                return Response({'error': CanManageAllPermission.message}, status=status.HTTP_403_FORBIDDEN)
+            user = User.objects.filter(rollNo=pk).first()
+            if not user:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                if user.status == True:
+                    user.status = False
+                    user.save()
+                    return Response({'success': 'User deactivated successfully'}, status=status.HTTP_200_OK)
+                else:
+                    user.status = True
+                    user.save()
+                    return Response({'success': 'User Activated successfully'}, status=status.HTTP_200_OK)
+                
+                
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-def get_slot():
-    now = datetime.datetime.now().time()
-    print(now)
-    breakfast_start = datetime.time(7, 0)
-    breakfast_end = datetime.time(10, 0)
-    lunch_start = datetime.time(12, 0)
-    lunch_end = datetime.time(14, 30)
-    snacks_start = datetime.time(16, 0)
-    snacks_end = datetime.time(18, 30)
-    dinner_start = datetime.time(19, 0)
-    dinner_end = datetime.time(21, 30)
-
-    if breakfast_start <= now <= breakfast_end:
-        return 'breakfast'
-    elif lunch_start <= now <= lunch_end:
-        return 'lunch'
-    elif snacks_start <= now <= snacks_end:
-        return 'snacks'
-    elif dinner_start <= now <= dinner_end:
-        return 'dinner'
-    else:
-        return None
     
 class CheckInViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -129,6 +153,10 @@ class CheckInViewSet(viewsets.ViewSet):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
         slot = get_slot()
+
+        if user.status == False:
+            return Response({'error': 'User is inactive'}, status=status.HTTP_403_FORBIDDEN)
+        
         if not slot:
             return Response({'error': 'Invalid time for check-in'}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
@@ -210,6 +238,7 @@ class CheckInViewSet(viewsets.ViewSet):
         rollNo = request.query_params.get('rollNo', None)
         food_type = request.query_params.get('food_type', None)
         last_7_days = request.query_params.get('last_7_days', None)
+        date_range = request.query_params.get('date_range', None)
 
         if not CanViewStatsPermission().has_permission(request, self):
             return Response({'error': CanViewStatsPermission.message}, status=status.HTTP_403_FORBIDDEN)
@@ -222,11 +251,17 @@ class CheckInViewSet(viewsets.ViewSet):
         if last_30_days:
             end_date = datetime.datetime.now().date()
             start_date = end_date - timedelta(days=30)
-            queryset = queryset.filter(date__range=(start_date, end_date))
+            queryset = CheckIn.objects.filter(date__range=(start_date, end_date))
         if last_7_days:
             end_date = datetime.datetime.now().date()
             start_date = end_date - timedelta(days=7)
-            queryset = queryset.filter(date__range=(start_date, end_date))
+            queryset = CheckIn.objects.filter(date__range=(start_date, end_date))
+
+        if date_range:
+            start_date, end_date = date_range.split(',')
+            start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()
+            queryset = CheckIn.objects.filter(date__range=(start_date, end_date))
 
         if slot:
             queryset = queryset.filter(slot=slot)
@@ -259,10 +294,12 @@ class FileUploadView(APIView):
                 user = User(
                     rollNo=row['rollNo'],
                     type=row['type'],
-                    batch=row['batch'],
+                    # batch=row['batch'],
                     name=row['name'],
-                    hall=row['hall'],
+                    # hall=row['hall'],
                     foodChoice=row['foodChoice'],
+                    roomNo=row['roomNo'],
+                    block=row['block'],
                     # profile pic code
                 )
                 user.save()
